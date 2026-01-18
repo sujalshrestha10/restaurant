@@ -4,7 +4,7 @@ import Table from '../models/table.model.js';
 export const createOrder = async (req, res) => {
   try {
     const {
-      customerName = "Guest",
+      customerName = 'Guest',
       items,
       orderType,
       tableNumber,
@@ -21,25 +21,35 @@ export const createOrder = async (req, res) => {
 
     for (let item of items) {
       if (!item.name || typeof item.name !== 'string') {
-        return res.status(400).json({ message: `Item name is required and should be a string` });
+        return res
+          .status(400)
+          .json({ message: `Item name is required and should be a string` });
       }
       if (typeof item.quantity !== 'number' || item.quantity <= 0) {
-        return res.status(400).json({ message: `Item quantity must be a positive number` });
+        return res
+          .status(400)
+          .json({ message: `Item quantity must be a positive number` });
       }
       if (typeof item.price !== 'number' || item.price <= 0) {
-        return res.status(400).json({ message: `Item price must be a positive number` });
+        return res
+          .status(400)
+          .json({ message: `Item price must be a positive number` });
       }
     }
 
     if (orderType === 'dine-in') {
       if (!tableNumber) {
-        return res.status(400).json({ message: 'Table number is required for dine-in' });
+        return res
+          .status(400)
+          .json({ message: 'Table number is required for dine-in' });
       }
 
       // Check if table exists
       const table = await Table.findOne({ tableNumber });
       if (!table) {
-        return res.status(404).json({ message: `Table number ${tableNumber} not found` });
+        return res
+          .status(404)
+          .json({ message: `Table number ${tableNumber} not found` });
       }
 
       // Check for active orders (pending or in-progress) for the table
@@ -70,7 +80,9 @@ export const createOrder = async (req, res) => {
       return res.status(400).json({ message: 'Invalid payment method' });
     }
 
-    const calculatedSubtotal = subtotal || items.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+    const calculatedSubtotal =
+      subtotal ||
+      items.reduce((sum, item) => sum + item.price * item.quantity, 0);
 
     // Create new order
     const order = new Order({
@@ -94,22 +106,22 @@ export const createOrder = async (req, res) => {
           isBooked: ['pending', 'in-progress'].includes(createdOrder.status),
           currentOrderId: createdOrder._id,
         },
-        { new: true }
+        { new: true },
       );
     }
 
     return res.status(201).json(createdOrder);
   } catch (error) {
-    console.error("Error while creating order:", error);
+    console.error('Error while creating order:', error);
 
     if (error.name === 'ValidationError') {
       const errors = {};
-      Object.keys(error.errors).forEach(key => {
+      Object.keys(error.errors).forEach((key) => {
         errors[key] = error.errors[key].message;
       });
       return res.status(400).json({
         message: 'Validation failed',
-        errors
+        errors,
       });
     }
 
@@ -159,13 +171,19 @@ export const addItemToOrder = async (req, res) => {
 
     for (let item of newItems) {
       if (!item.name || typeof item.name !== 'string') {
-        return res.status(400).json({ message: `Item name is required and should be a string` });
+        return res
+          .status(400)
+          .json({ message: `Item name is required and should be a string` });
       }
       if (typeof item.quantity !== 'number' || item.quantity <= 0) {
-        return res.status(400).json({ message: `Item quantity must be a positive number` });
+        return res
+          .status(400)
+          .json({ message: `Item quantity must be a positive number` });
       }
       if (typeof item.price !== 'number' || item.price <= 0) {
-        return res.status(400).json({ message: `Item price must be a positive number` });
+        return res
+          .status(400)
+          .json({ message: `Item price must be a positive number` });
       }
     }
 
@@ -177,33 +195,45 @@ export const addItemToOrder = async (req, res) => {
 
     // Check if order is active
     if (!['pending', 'in-progress'].includes(order.status)) {
-      return res.status(400).json({ message: 'Cannot add items to a completed, cancelled, or delivered order' });
+      return res.status(400).json({
+        message:
+          'Cannot add items to a completed, cancelled, or delivered order',
+      });
     }
 
     // Verify tableNumber for dine-in orders
     if (order.orderType === 'dine-in') {
       if (!tableNumber || order.tableNumber !== tableNumber) {
-        return res.status(400).json({ message: 'Table number mismatch or not provided' });
+        return res
+          .status(400)
+          .json({ message: 'Table number mismatch or not provided' });
       }
 
       // Check if table is booked and linked to this order
       const table = await Table.findOne({ tableNumber });
       if (!table) {
-        return res.status(404).json({ message: `Table number ${tableNumber} not found` });
+        return res
+          .status(404)
+          .json({ message: `Table number ${tableNumber} not found` });
       }
       if (!table.isBooked || table.currentOrderId.toString() !== orderId) {
-        return res.status(400).json({ message: 'Table is not booked for this order' });
+        return res
+          .status(400)
+          .json({ message: 'Table is not booked for this order' });
       }
     }
 
     // Add new items and update subtotal
     order.items.push(...newItems);
-    order.subtotal += newItems.reduce((acc, item) => acc + item.price * item.quantity, 0);
+    order.subtotal += newItems.reduce(
+      (acc, item) => acc + item.price * item.quantity,
+      0,
+    );
     const updatedOrder = await order.save();
 
     res.status(200).json(updatedOrder);
   } catch (error) {
-    console.error("Error updating order:", error);
+    console.error('Error updating order:', error);
     res.status(500).json({ message: 'Server Error' });
   }
 };
@@ -268,15 +298,21 @@ export const updateOrderStatus = async (req, res) => {
     const { status } = req.body;
 
     // Validate status
-    const allowedStatuses = ["pending", "in-progress", "completed", "cancelled", "delivered"];
+    const allowedStatuses = [
+      'pending',
+      'in-progress',
+      'completed',
+      'cancelled',
+      'delivered',
+    ];
     if (!allowedStatuses.includes(status)) {
-      return res.status(400).json({ message: "Invalid status value." });
+      return res.status(400).json({ message: 'Invalid status value.' });
     }
 
     // Find the order
     const order = await Order.findById(id);
     if (!order) {
-      return res.status(404).json({ message: "Order not found." });
+      return res.status(404).json({ message: 'Order not found.' });
     }
 
     // Update order status
@@ -284,10 +320,12 @@ export const updateOrderStatus = async (req, res) => {
     const updatedOrder = await order.save();
 
     // Handle table booking for dine-in orders
-    if (order.orderType === "dine-in" && order.tableNumber) {
+    if (order.orderType === 'dine-in' && order.tableNumber) {
       const table = await Table.findOne({ tableNumber: order.tableNumber });
       if (!table) {
-        return res.status(404).json({ message: `Table number ${order.tableNumber} not found` });
+        return res
+          .status(404)
+          .json({ message: `Table number ${order.tableNumber} not found` });
       }
 
       // Set isBooked based on status
@@ -302,16 +340,15 @@ export const updateOrderStatus = async (req, res) => {
     }
 
     res.status(200).json({
-      message: "Order status updated successfully.",
+      message: 'Order status updated successfully.',
       order: updatedOrder,
     });
   } catch (error) {
-    console.error("Error updating order status:", error);
-    res.status(500).json({ message: "Server Error" });
+    console.error('Error updating order status:', error);
+    res.status(500).json({ message: 'Server Error' });
   }
 };
 
-// controllers/orderController.js
 export const getActiveOrder = async (req, res) => {
   try {
     const { tableNumber } = req.query;
@@ -334,8 +371,7 @@ export const getActiveOrder = async (req, res) => {
     console.error('Error fetching in-progress orders:', error);
     res.status(500).json({ message: 'Server Error' });
   }
-}
-
+};
 
 // controllers/orderController.js
 export const completeOrder = async (req, res) => {
@@ -361,14 +397,16 @@ export const completeOrder = async (req, res) => {
     console.log('Found orders:', existingOrders);
 
     if (existingOrders.length === 0) {
-      return res.status(404).json({ message: 'No active orders found for table' });
+      return res
+        .status(404)
+        .json({ message: 'No active orders found for table' });
     }
 
     // Update orders to completed
     const updateResult = await Order.updateMany(
       query,
       { $set: { status: 'completed' } },
-      { new: true }
+      { new: true },
     );
 
     console.log('Update result:', updateResult);
@@ -383,7 +421,7 @@ export const completeOrder = async (req, res) => {
             isBooked: false,
             currentOrderId: null,
           },
-        }
+        },
       );
       console.log('Table updated:', { tableNumber, isBooked: false });
     } else {
@@ -404,11 +442,7 @@ export const completeOrder = async (req, res) => {
 export const editOrder = async (req, res) => {
   try {
     const { orderId } = req.params;
-    const {
-      customerName,
-      specialInstructions,
-      updatedItems,
-    } = req.body;
+    const { customerName, specialInstructions, updatedItems } = req.body;
 
     // Fetch order
     const order = await Order.findById(orderId);
@@ -418,7 +452,9 @@ export const editOrder = async (req, res) => {
 
     // Ensure order is editable
     if (!['pending', 'in-progress'].includes(order.status)) {
-      return res.status(400).json({ message: 'Only pending or in-progress orders can be edited' });
+      return res
+        .status(400)
+        .json({ message: 'Only pending or in-progress orders can be edited' });
     }
 
     if (customerName) {
@@ -434,14 +470,19 @@ export const editOrder = async (req, res) => {
       for (const updatedItem of updatedItems) {
         const existingItem = order.items.id(updatedItem._id);
         if (!existingItem) {
-          return res.status(404).json({ message: `Item with ID ${updatedItem._id} not found in order` });
+          return res.status(404).json({
+            message: `Item with ID ${updatedItem._id} not found in order`,
+          });
         }
 
         if (updatedItem.name) {
           existingItem.name = updatedItem.name;
         }
 
-        if (typeof updatedItem.quantity === 'number' && updatedItem.quantity > 0) {
+        if (
+          typeof updatedItem.quantity === 'number' &&
+          updatedItem.quantity > 0
+        ) {
           existingItem.quantity = updatedItem.quantity;
         }
 
@@ -451,7 +492,10 @@ export const editOrder = async (req, res) => {
       }
 
       // Recalculate subtotal
-      order.subtotal = order.items.reduce((sum, item) => sum + item.price * item.quantity, 0);
+      order.subtotal = order.items.reduce(
+        (sum, item) => sum + item.price * item.quantity,
+        0,
+      );
     }
 
     const updatedOrder = await order.save();
@@ -466,33 +510,29 @@ export const editOrder = async (req, res) => {
   }
 };
 
-
 export const sendToKotController = async (req, res) => {
   const { orderId } = req.params;
 
   if (!orderId) {
-    return res.status(400).json({ message: "Order ID is required" });
+    return res.status(400).json({ message: 'Order ID is required' });
   }
 
   try {
     const order = await Order.findById(orderId);
     if (!order) {
-      return res.status(404).json({ message: "Order not found" });
+      return res.status(404).json({ message: 'Order not found' });
     }
 
     if (order.sentToKOT) {
-      return res.status(400).json({ message: "Order already sent to KOT" });
+      return res.status(400).json({ message: 'Order already sent to KOT' });
     }
 
     order.sentToKOT = true;
     await order.save();
 
-    res.status(200).json({ message: "Order sent to KOT successfully", order });
+    res.status(200).json({ message: 'Order sent to KOT successfully', order });
   } catch (error) {
-    console.error("Error sending order to KOT:", error);
-    res.status(500).json({ message: "Server error" });
+    console.error('Error sending order to KOT:', error);
+    res.status(500).json({ message: 'Server error' });
   }
 };
-
-
-
