@@ -24,13 +24,13 @@ router.get('/orders', getAllOrders);
 // Get filtered orders (daily, weekly, monthly, yearly)
 router.get('/orders/filter', getFilteredOrders);
 
-router.put('/orders/:id', updateOrderStatus);
-
 router.get('/orders/active', getActiveOrder);
 
 // Complete an order
 router.put('/orders/complete', completeOrder);
 
 router.put('/orders/:orderId/send-to-kot', sendToKotController);
+
+router.put('/orders/:id', updateOrderStatus);
 
 export default router;
