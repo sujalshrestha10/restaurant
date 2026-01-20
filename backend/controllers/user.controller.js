@@ -15,7 +15,6 @@ export const register = async (req, res) => {
 
     const hashedPassword = await bcrypt.hash(req.body.password, 10);
 
-    // Handle optional file upload
     const userName = req.body.fullname || 'User';
     let profilePhoto = `https://ui-avatars.com/api/?name=${encodeURIComponent(userName)}&background=0D8ABC&color=fff&size=150`;
     if (req.file) {
