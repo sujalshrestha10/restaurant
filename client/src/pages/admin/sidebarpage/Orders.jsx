@@ -10,33 +10,11 @@ const Orders = () => {
   const [statusFilter, setStatusFilter] = useState('all');
   const [loading, setLoading] = useState(true);
   const [billData, setBillData] = useState(null);
-  const [updatingStatus, setUpdatingStatus] = useState(null); // Track status update
-  const [page, setPage] = useState(1); // Current page
-  const [limit] = useState(10); // Orders per page
-  const [totalPages, setTotalPages] = useState(1); // Total pages
+  const [updatingStatus, setUpdatingStatus] = useState(null);
+  const [page, setPage] = useState(1);
+  const [limit] = useState(10);
+  const [totalPages, setTotalPages] = useState(1);
   const billRef = useRef(null);
-
-  // Debugging: Log billRef to ensure it's assigned
-  useEffect(() => {
-    if (billData) {
-      console.log('billRef.current:', billRef.current);
-    }
-  }, [billData]);
-
-  // Print handler using window.print()
-  const handlePrint = () => {
-    if (!billData) {
-      console.error('No bill data available');
-      alert('Please generate a bill first');
-      return;
-    }
-    if (!billRef.current) {
-      console.error('billRef.current is not assigned');
-      alert('Cannot print: Bill content is not ready');
-      return;
-    }
-    window.print();
-  };
 
   const fetchOrders = async () => {
     try {
@@ -62,15 +40,14 @@ const Orders = () => {
 
   useEffect(() => {
     fetchOrders();
-  }, [page]); // Refetch when page changes
+  }, [page]);
 
   const handleChangeStatus = async (orderId, newStatus) => {
     try {
-      setUpdatingStatus(orderId); // Indicate which order is being updated
+      setUpdatingStatus(orderId);
       await axios.put(`${ORDER_API_END_POINT}/orders/${orderId}`, {
         status: newStatus,
       });
-      // Update the order's status in the local state
       setOrders((prevOrders) =>
         prevOrders.map((order) =>
           order._id === orderId ? { ...order, status: newStatus } : order,
@@ -80,14 +57,13 @@ const Orders = () => {
       console.error('Failed to update status:', error);
       alert('Failed to update status. Please try again.');
     } finally {
-      setUpdatingStatus(null); // Clear updating state
+      setUpdatingStatus(null);
     }
   };
 
   const handleSendToKOT = async (orderId) => {
     try {
       await axios.put(`${ORDER_API_END_POINT}/orders/${orderId}/send-to-kot`);
-
       setOrders((prevOrders) =>
         prevOrders.map((order) =>
           order._id === orderId
@@ -95,7 +71,6 @@ const Orders = () => {
             : order,
         ),
       );
-
       alert('Order sent to KOT successfully!');
     } catch (err) {
       console.error('Error sending to KOT', err);
@@ -125,6 +100,14 @@ const Orders = () => {
       orders: groupedOrders,
       total: totalAmount.toFixed(2),
     });
+  };
+
+  const handlePrint = () => {
+    if (!billData) {
+      alert('Please generate a bill first');
+      return;
+    }
+    window.print();
   };
 
   const filterByDate = (createdAt) => {
@@ -163,7 +146,6 @@ const Orders = () => {
     .filter((order) => statusFilter === 'all' || order.status === statusFilter)
     .filter((order) => filterByDate(order.createdAt));
 
-  // Status badge styling
   const getStatusClass = (status) => {
     switch (status) {
       case 'pending':
@@ -181,7 +163,6 @@ const Orders = () => {
     }
   };
 
-  // Pagination controls
   const handleNextPage = () => {
     if (page < totalPages) setPage(page + 1);
   };
@@ -192,31 +173,6 @@ const Orders = () => {
 
   return (
     <div className='p-6 min-h-screen bg-gray-100'>
-      <style>
-        {`
-          @media print {
-            body * {
-              visibility: hidden;
-            }
-            #bill-content,
-            #bill-content * {
-              visibility: visible;
-            }
-            #bill-content {
-              position: absolute;
-              left: 0;
-              top: 0;
-              width: 100%;
-              padding: 20px;
-              background: white;
-              box-shadow: none;
-            }
-            .no-print {
-              display: none;
-            }
-          }
-        `}
-      </style>
       <div className='max-w-7xl mx-auto bg-white p-6 rounded-xl shadow-md'>
         <h1 className='text-3xl font-bold mb-6 text-center text-gray-800'>
           Order Management
@@ -239,7 +195,6 @@ const Orders = () => {
             <option value='all'>All Types</option>
             <option value='dine-in'>Dine-In</option>
             <option value='delivery'>Delivery</option>
-            <option value='takeaway'>Takeaway</option>
           </select>
           <select
             className='w-full p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500'
@@ -266,209 +221,189 @@ const Orders = () => {
           </select>
         </div>
 
-        {/* Table */}
+        {/* Orders List */}
         {loading ? (
-          <div className='text-center py-20'>Loading orders...</div>
+          <div className='text-center py-8'>Loading orders...</div>
         ) : filteredOrders.length === 0 ? (
-          <div className='text-center py-20'>No orders found.</div>
+          <div className='text-center py-8 text-gray-500'>No orders found</div>
         ) : (
-          <div className='overflow-x-auto'>
-            <table className='min-w-full border'>
-              <thead className='bg-gray-100'>
-                <tr>
-                  <th className='py-2 px-4 border'>#</th>
-                  <th className='py-2 px-4 border'>Customer</th>
-                  <th className='py-2 px-4 border'>Type</th>
-                  <th className='py-2 px-4 border'>Table</th>
-                  <th className='py-2 px-4 border'>Items</th>
-                  <th className='py-2 px-4 border'>Status</th>
-                  <th className='py-2 px-4 border'>Payment</th>
-                  <th className='py-2 px-4 border'>Amount</th>
-                  <th className='py-2 px-4 border'>Time</th>
-                  <th className='py-2 px-4 border'>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredOrders.map((order, index) => (
-                  <tr key={order._id} className='text-center hover:bg-gray-50'>
-                    <td className='py-2 px-4 border'>
-                      {(page - 1) * limit + index + 1}
-                    </td>
-                    <td className='py-2 px-4 border'>
-                      {order.customerName || 'Guest'}
-                    </td>
-                    <td className='py-2 px-4 border'>{order.orderType}</td>
-                    <td className='py-2 px-4 border'>
-                      {order.tableNumber || '-'}
-                    </td>
-                    <td className='py-2 px-4 border text-left max-w-xs overflow-y-auto'>
-                      {order.items?.map((item, i) => (
-                        <div key={i}>
-                          {item.quantity}x {item.name} - Rs.{item.price}
-                        </div>
-                      ))}
-                    </td>
-                    <td className='py-2 px-4 border'>
-                      <span
-                        className={`inline-block px-2 py-1 rounded-full text-xs font-semibold ${getStatusClass(
-                          order.status,
-                        )}`}
-                      >
-                        {order.status}
+          <div className='space-y-4'>
+            {filteredOrders.map((order) => (
+              <div key={order._id} className='border rounded-lg p-4 bg-gray-50'>
+                <div className='flex justify-between items-start mb-3'>
+                  <div>
+                    <h3 className='font-semibold text-lg'>
+                      {order.customerName}
+                    </h3>
+                    <p className='text-sm text-gray-600'>
+                      {order.orderType === 'dine-in'
+                        ? `Table ${order.tableNumber}`
+                        : order.orderType}
+                    </p>
+                    <p className='text-xs text-gray-500'>
+                      {new Date(order.createdAt).toLocaleString()}
+                    </p>
+                  </div>
+                  <div className='flex items-center gap-2'>
+                    <span
+                      className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusClass(
+                        order.status,
+                      )}`}
+                    >
+                      {order.status}
+                    </span>
+                    {order.sentToKOT && (
+                      <span className='px-2 py-1 bg-green-100 text-green-800 rounded-full text-xs'>
+                        KOT Sent
                       </span>
-                    </td>
-                    <td className='py-2 px-4 border'>{order.paymentMethod}</td>
-                    <td className='py-2 px-4 border text-green-600 font-semibold'>
-                      Rs.{order.subtotal?.toFixed(2) || '0.00'}
-                    </td>
-                    <td className='py-2 px-4 border text-xs'>
-                      {new Date(order.createdAt).toLocaleTimeString([], {
-                        hour: '2-digit',
-                        minute: '2-digit',
-                      })}
-                    </td>
-                    <td className='py-2 px-4 border'>
-                      <select
-                        className='p-1 mb-2 w-full rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50'
-                        value={order.status}
-                        onChange={(e) =>
-                          handleChangeStatus(order._id, e.target.value)
-                        }
-                        disabled={updatingStatus === order._id}
-                      >
-                        <option value='pending'>Pending</option>
-                        <option value='in-progress'>In Progress</option>
-                        <option value='completed'>Completed</option>
-                        <option value='cancelled'>Cancelled</option>
-                        <option value='delivered'>Delivered</option>
-                      </select>
+                    )}
+                  </div>
+                </div>
 
-                      {order.sentToKOT ? (
-                        <button
-                          disabled
-                          className='bg-gray-400 text-white px-2 py-1 rounded text-xs w-full mb-1 cursor-not-allowed'
-                        >
-                          Sent to KOT
-                        </button>
-                      ) : (
-                        <button
-                          onClick={() => handleSendToKOT(order._id)}
-                          className='bg-yellow-500 text-white px-2 py-1 rounded text-xs w-full mb-1 hover:bg-yellow-600'
-                        >
-                          Send to KOT
-                        </button>
-                      )}
+                <div className='mb-3'>
+                  <h4 className='font-medium mb-2'>Items:</h4>
+                  <div className='space-y-1'>
+                    {order.items.map((item, index) => (
+                      <div key={index} className='flex justify-between text-sm'>
+                        <span>
+                          {item.name} x {item.quantity}
+                        </span>
+                        <span>
+                          Rs. {(item.price * item.quantity).toFixed(2)}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                  <div className='border-t pt-2 mt-2'>
+                    <div className='flex justify-between font-semibold'>
+                      <span>Total:</span>
+                      <span>Rs. {order.subtotal.toFixed(2)}</span>
+                    </div>
+                  </div>
+                </div>
 
-                      {/* <button
-                        onClick={() => handleGenerateBill(order)}
-                        className="bg-green-600 text-white px-2 py-1 rounded text-xs w-full hover:bg-green-700"
-                      >
-                        Generate Bill
-                      </button> */}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+                <div className='flex gap-2 flex-wrap'>
+                  {!order.sentToKOT && (
+                    <button
+                      onClick={() => handleSendToKOT(order._id)}
+                      className='px-3 py-1 bg-blue-500 text-white rounded text-sm hover:bg-blue-600'
+                    >
+                      Send to KOT
+                    </button>
+                  )}
 
-            {/* Pagination Controls */}
-            <div className='flex justify-between items-center mt-4'>
-              <button
-                onClick={handlePreviousPage}
-                disabled={page === 1}
-                className='bg-blue-600 text-white px-4 py-2 rounded disabled:bg-gray-400 hover:bg-blue-700'
-              >
-                Previous
-              </button>
-              <span className='text-gray-700'>
-                Page {page} of {totalPages}
-              </span>
-              <button
-                onClick={handleNextPage}
-                disabled={page === totalPages}
-                className='bg-blue-600 text-white px-4 py-2 rounded disabled:bg-gray-400 hover:bg-blue-700'
-              >
-                Next
-              </button>
-            </div>
+                  <select
+                    value={order.status}
+                    onChange={(e) =>
+                      handleChangeStatus(order._id, e.target.value)
+                    }
+                    disabled={updatingStatus === order._id}
+                    className='px-3 py-1 border rounded text-sm'
+                  >
+                    <option value='pending'>Pending</option>
+                    <option value='in-progress'>In Progress</option>
+                    <option value='completed'>Completed</option>
+                    <option value='cancelled'>Cancelled</option>
+                    <option value='delivered'>Delivered</option>
+                  </select>
+
+                  <button
+                    onClick={() => handleGenerateBill(order)}
+                    className='px-3 py-1 bg-green-500 text-white rounded text-sm hover:bg-green-600'
+                  >
+                    Generate Bill
+                  </button>
+                </div>
+              </div>
+            ))}
           </div>
         )}
 
-        {/* Bill Modal */}
-        {billData && (
-          <div className='fixed inset-0 flex items-center justify-center bg-black bg-opacity-40 z-50 no-print'>
-            <div
-              id='bill-content'
-              ref={billRef}
-              className='bg-white p-6 rounded-lg shadow-lg w-full max-w-md relative'
-            >
-              <button
-                className='absolute top-2 right-3 text-xl font-bold text-gray-500 no-print'
-                onClick={() => setBillData(null)}
-              >
-                ×
-              </button>
-              <h2 className='text-xl font-bold mb-4 text-center'>
-                Bill Summary
-              </h2>
-              <p>
-                <strong>Customer:</strong> {billData.customer}
-              </p>
-              {billData.orderType === 'dine-in' && (
+        {/* Pagination */}
+        <div className='flex justify-between items-center mt-6'>
+          <button
+            onClick={handlePreviousPage}
+            disabled={page === 1}
+            className='px-4 py-2 bg-gray-300 text-gray-700 rounded disabled:opacity-50'
+          >
+            Previous
+          </button>
+          <span className='text-sm text-gray-600'>
+            Page {page} of {totalPages}
+          </span>
+          <button
+            onClick={handleNextPage}
+            disabled={page === totalPages}
+            className='px-4 py-2 bg-gray-300 text-gray-700 rounded disabled:opacity-50'
+          >
+            Next
+          </button>
+        </div>
+      </div>
+
+      {/* Bill Modal */}
+      {billData && (
+        <div className='fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50'>
+          <div className='bg-white p-6 rounded-lg max-w-md w-full mx-4'>
+            <div ref={billRef} id='bill-content'>
+              <h2 className='text-xl font-bold mb-4 text-center'>Bill</h2>
+              <div className='mb-4'>
                 <p>
-                  <strong>Table Number:</strong> {billData.table}
+                  <strong>Customer:</strong> {billData.customer}
                 </p>
-              )}
-              <p>
-                <strong>Order Type:</strong> {billData.orderType}
-              </p>
-              <div className='mt-4 max-h-60 overflow-auto border p-2 rounded'>
-                {billData.orders.map((order, idx) => (
-                  <div key={idx} className='mb-2 border-b pb-1'>
-                    <div>
-                      <strong>Items:</strong>
-                      <ul className='list-disc list-inside'>
-                        {order.items?.map((item, i) => (
-                          <li key={i}>
-                            {item.quantity} x {item.name} - Rs.{item.price}
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                    <div>
-                      <strong>Subtotal:</strong> Rs.
-                      {order.subtotal?.toFixed(2) || '0.00'}
-                    </div>
-                    <div>
-                      <strong>Status:</strong> {order.status}
-                    </div>
-                    <div>
-                      <strong>Payment:</strong> {order.paymentMethod}
-                    </div>
+                {billData.table && (
+                  <p>
+                    <strong>Table:</strong> {billData.table}
+                  </p>
+                )}
+                <p>
+                  <strong>Type:</strong> {billData.orderType}
+                </p>
+              </div>
+              <div className='space-y-2 mb-4'>
+                {billData.orders.map((order, index) => (
+                  <div key={index}>
+                    <h4 className='font-medium'>Order #{index + 1}</h4>
+                    {order.items.map((item, itemIndex) => (
+                      <div
+                        key={itemIndex}
+                        className='flex justify-between text-sm'
+                      >
+                        <span>
+                          {item.name} x {item.quantity}
+                        </span>
+                        <span>
+                          Rs. {(item.price * item.quantity).toFixed(2)}
+                        </span>
+                      </div>
+                    ))}
                   </div>
                 ))}
               </div>
-              <p className='text-right font-bold mt-4'>
-                Total: Rs.{billData.total}
-              </p>
-
+              <div className='border-t pt-2'>
+                <div className='flex justify-between font-bold'>
+                  <span>Total:</span>
+                  <span>Rs. {billData.total}</span>
+                </div>
+              </div>
+            </div>
+            <div className='flex gap-2 mt-4 no-print'>
               <button
                 onClick={handlePrint}
-                className='mt-4 bg-blue-600 text-white px-4 py-2 rounded w-full hover:bg-blue-700 no-print'
+                className='flex-1 bg-blue-500 text-white py-2 rounded hover:bg-blue-600'
               >
-                Print Bill
+                Print
               </button>
-
               <button
                 onClick={() => setBillData(null)}
-                className='mt-2 bg-red-600 text-white px-4 py-2 rounded w-full hover:bg-red-700 no-print'
+                className='flex-1 bg-gray-500 text-white py-2 rounded hover:bg-gray-600'
               >
                 Close
               </button>
             </div>
           </div>
-        )}
-      </div>
+        </div>
+      )}
     </div>
   );
 };

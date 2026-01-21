@@ -8,6 +8,7 @@ import {
   getActiveOrder,
   completeOrder,
   sendToKotController,
+  getTableBill,
 } from '../controllers/order.controller.js';
 
 const router = express.Router();
@@ -20,6 +21,8 @@ router.post('/add-item/:orderId', addItemToOrder);
 
 // Get all orders
 router.get('/orders', getAllOrders);
+
+router.get('/table-bill/:tableNumber', getTableBill);
 
 // Get filtered orders (daily, weekly, monthly, yearly)
 router.get('/orders/filter', getFilteredOrders);

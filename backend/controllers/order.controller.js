@@ -538,3 +538,39 @@ export const sendToKotController = async (req, res) => {
     res.status(500).json({ message: 'Server error' });
   }
 };
+
+export const getTableBill = async (req, res) => {
+  try {
+    const { tableNumber } = req.params;
+
+    if (!tableNumber) {
+      return res.status(400).json({ message: 'Table number is required' });
+    }
+
+    // Get all orders for this table (including completed ones)
+    const orders = await Order.find({
+      tableNumber: String(tableNumber),
+      orderType: 'dine-in',
+    }).sort({ createdAt: 1 });
+
+    // Calculate totals
+    const grandTotal = orders.reduce((sum, order) => {
+      return (
+        sum +
+        order.items.reduce((itemSum, item) => {
+          return itemSum + item.price * item.quantity;
+        }, 0)
+      );
+    }, 0);
+
+    res.status(200).json({
+      orders,
+      grandTotal,
+      tableNumber,
+      totalOrders: orders.length,
+    });
+  } catch (error) {
+    console.error('Error fetching table bill:', error);
+    res.status(500).json({ message: 'Server Error' });
+  }
+};
