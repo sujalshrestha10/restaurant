@@ -48,6 +48,17 @@ export const register = async (req, res) => {
       .json({ message: 'Account created successfully', success: true });
   } catch (error) {
     console.error('Error in register function:', error);
+    if (error.name === 'ValidationError') {
+      const validationErrors = {};
+      for (const field in error.errors) {
+        validationErrors[field] = error.errors[field].message;
+      }
+      return res.status(400).json({
+        message: 'Validation failed',
+        errors: validationErrors,
+        success: false,
+      });
+    }
     return res
       .status(500)
       .json({ message: 'Internal Server Error', success: false });
