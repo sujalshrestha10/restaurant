@@ -527,7 +527,9 @@ export const sendToKotController = async (req, res) => {
       return res.status(400).json({ message: 'Order already sent to KOT' });
     }
 
+    // Update both sentToKOT and status
     order.sentToKOT = true;
+    order.status = 'in-progress'; // Change status to in-progress
     await order.save();
 
     res.status(200).json({ message: 'Order sent to KOT successfully', order });

@@ -1,6 +1,8 @@
-import posModel from "../models/pos.model.js";
+import posModel from '../models/pos.model.js';
+import Order from '../models/order.model.js';
+import Table from '../models/table.model.js';
 
-
+// Create a new bill
 // Create a new bill
 export const createBill = async (req, res) => {
   try {
@@ -10,18 +12,19 @@ export const createBill = async (req, res) => {
       cash,
       credit,
       online,
-      paymentMethod = "cash",
-      orderType = "dine-in",
+      paymentMethod = 'cash',
+      orderType = 'dine-in',
       customerName,
       customerNumber,
+      tableNumber,
     } = req.body;
 
     if (!cart || cart.length === 0) {
-      return res.status(400).json({ error: "Cart items are required" });
+      return res.status(400).json({ error: 'Cart items are required' });
     }
 
-    // Validate cart items structure (optional, can be more thorough)
-    const items = cart.map(item => ({
+    // Validate cart items structure
+    const items = cart.map((item) => ({
       id: item.id,
       name: item.name,
       price: item.price,
@@ -38,15 +41,114 @@ export const createBill = async (req, res) => {
       paymentMethod,
       orderType,
       customerDetails: {
-        name: customerName || "Guest",
-        contact: customerNumber || "",
+        name: customerName || 'Guest',
+        contact: customerNumber || '',
       },
     });
+
+    // Create kitchen order
+    const orderItems = cart.map((item) => ({
+      name: item.name,
+      price: item.price,
+      quantity: item.quantity,
+    }));
+
+    // Determine kitchen order type and required fields
+    const kitchenOrderData = {
+      customerName: customerName || 'Guest',
+      items: orderItems,
+      paymentMethod: 'counter',
+      subtotal: total,
+      status: 'in-progress',
+      sentToKOT: true,
+    };
+
+    if (tableNumber) {
+      // Dine-in with table
+      kitchenOrderData.orderType = 'dine-in';
+      kitchenOrderData.tableNumber = String(tableNumber);
+    } else {
+      // Takeaway - use delivery type with dummy values
+      kitchenOrderData.orderType = 'delivery';
+      kitchenOrderData.phoneNumber = customerNumber || '0000000000';
+      kitchenOrderData.deliveryAddress = 'Takeaway';
+    }
+
+    const kitchenOrder = new Order(kitchenOrderData);
+    await kitchenOrder.save();
+
+    // If table is selected, update table booking
+    if (tableNumber) {
+      await Table.findOneAndUpdate(
+        { tableNumber: String(tableNumber) },
+        {
+          isBooked: true,
+          currentOrderId: kitchenOrder._id,
+        },
+      );
+    }
 
     res.status(201).json({ success: true, bill: newBill });
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: "Failed to create bill", details: err.message });
+    res
+      .status(500)
+      .json({ error: 'Failed to create bill', details: err.message });
+  }
+};
+
+// Add this new function to pos.controller.js
+export const addItemsToOrder = async (req, res) => {
+  try {
+    const { tableNumber } = req.params;
+    const { cart, customerName, customerNumber } = req.body;
+
+    if (!cart || cart.length === 0) {
+      return res.status(400).json({ error: 'Cart items are required' });
+    }
+
+    // Find the table and its current order
+    const table = await Table.findOne({ tableNumber: String(tableNumber) });
+    if (!table || !table.isBooked || !table.currentOrderId) {
+      return res
+        .status(400)
+        .json({ error: 'No active order found for this table' });
+    }
+
+    const existingOrder = await Order.findById(table.currentOrderId);
+    if (
+      !existingOrder ||
+      !['pending', 'in-progress'].includes(existingOrder.status)
+    ) {
+      return res.status(400).json({ error: 'Cannot add items to this order' });
+    }
+
+    // Add new items to existing order
+    const newItems = cart.map((item) => ({
+      name: item.name,
+      price: item.price,
+      quantity: item.quantity,
+    }));
+
+    const additionalTotal = cart.reduce(
+      (sum, item) => sum + item.price * item.quantity,
+      0,
+    );
+
+    existingOrder.items.push(...newItems);
+    existingOrder.subtotal += additionalTotal;
+    await existingOrder.save();
+
+    res.status(200).json({
+      success: true,
+      message: 'Items added to existing order',
+      order: existingOrder,
+    });
+  } catch (err) {
+    console.error(err);
+    res
+      .status(500)
+      .json({ error: 'Failed to add items', details: err.message });
   }
 };
 
@@ -75,21 +177,21 @@ export const getDailySales = async (req, res) => {
     const sales = await posModel.aggregate([
       {
         $match: {
-          createdAt: { $gte: today, $lt: tomorrow }
-        }
+          createdAt: { $gte: today, $lt: tomorrow },
+        },
       },
       {
         $group: {
           _id: null,
-          totalSales: { $sum: "$totalAmount" },
-          orders: { $sum: 1 }
-        }
-      }
+          totalSales: { $sum: '$totalAmount' },
+          orders: { $sum: 1 },
+        },
+      },
     ]);
 
     res.json(sales[0] || { totalSales: 0, orders: 0 });
   } catch (err) {
-    res.status(500).json({ error: "Failed to get daily sales" });
+    res.status(500).json({ error: 'Failed to get daily sales' });
   }
 };
 
@@ -103,21 +205,21 @@ export const getMonthlySales = async (req, res) => {
     const sales = await posModel.aggregate([
       {
         $match: {
-          createdAt: { $gte: start, $lt: end }
-        }
+          createdAt: { $gte: start, $lt: end },
+        },
       },
       {
         $group: {
           _id: null,
-          totalSales: { $sum: "$totalAmount" },
-          orders: { $sum: 1 }
-        }
-      }
+          totalSales: { $sum: '$totalAmount' },
+          orders: { $sum: 1 },
+        },
+      },
     ]);
 
     res.json(sales[0] || { totalSales: 0, orders: 0 });
   } catch (err) {
-    res.status(500).json({ error: "Failed to get monthly sales" });
+    res.status(500).json({ error: 'Failed to get monthly sales' });
   }
 };
 
@@ -125,24 +227,25 @@ export const getMonthlySales = async (req, res) => {
 export const getTopItems = async (req, res) => {
   try {
     const topItems = await posModel.aggregate([
-      { $unwind: "$items" },
+      { $unwind: '$items' },
       {
         $group: {
-          _id: "$items.name",
-          totalQuantity: { $sum: "$items.quantity" },
-          totalSales: { $sum: { $multiply: ["$items.price", "$items.quantity"] } }
-        }
+          _id: '$items.name',
+          totalQuantity: { $sum: '$items.quantity' },
+          totalSales: {
+            $sum: { $multiply: ['$items.price', '$items.quantity'] },
+          },
+        },
       },
       { $sort: { totalQuantity: -1 } },
-      { $limit: 5 }
+      { $limit: 5 },
     ]);
 
     res.json(topItems);
   } catch (err) {
-    res.status(500).json({ error: "Failed to fetch top items" });
+    res.status(500).json({ error: 'Failed to fetch top items' });
   }
 };
-
 
 export const getTotalByPaymentType = async (req, res) => {
   try {
@@ -154,61 +257,60 @@ export const getTotalByPaymentType = async (req, res) => {
     const totals = await posModel.aggregate([
       {
         $match: {
-          createdAt: { $gte: today, $lt: tomorrow }
-        }
+          createdAt: { $gte: today, $lt: tomorrow },
+        },
       },
       {
         $group: {
           _id: null,
-          totalCash: { $sum: "$cash" },
-          totalCredit: { $sum: "$credit" },
-          totalOnline: { $sum: "$online" },
-        }
-      }
+          totalCash: { $sum: '$cash' },
+          totalCredit: { $sum: '$credit' },
+          totalOnline: { $sum: '$online' },
+        },
+      },
     ]);
 
     res.json(totals[0] || { totalCash: 0, totalCredit: 0, totalOnline: 0 });
   } catch (err) {
-    res.status(500).json({ error: "Failed to get payment breakdown" });
+    res.status(500).json({ error: 'Failed to get payment breakdown' });
   }
 };
-
-
 
 export const getAllItemsSold = async (req, res) => {
   try {
     const items = await posModel.aggregate([
-      { $unwind: "$items" },
+      { $unwind: '$items' },
       {
         $group: {
-          _id: "$items.name",
-          totalQuantity: { $sum: "$items.quantity" },
-          totalSales: { $sum: { $multiply: ["$items.price", "$items.quantity"] } },
-        }
+          _id: '$items.name',
+          totalQuantity: { $sum: '$items.quantity' },
+          totalSales: {
+            $sum: { $multiply: ['$items.price', '$items.quantity'] },
+          },
+        },
       },
-      { $sort: { totalQuantity: -1 } }
+      { $sort: { totalQuantity: -1 } },
     ]);
 
     res.json(items);
   } catch (err) {
-    res.status(500).json({ error: "Failed to fetch item sales list" });
+    res.status(500).json({ error: 'Failed to fetch item sales list' });
   }
 };
 
-
 export const transferCreditTo = async (req, res) => {
   try {
-    const { billId, transferTo = "cash", amount } = req.body;
+    const { billId, transferTo = 'cash', amount } = req.body;
 
-    if (!["cash", "online"].includes(transferTo)) {
-      return res.status(400).json({ error: "Invalid transfer target" });
+    if (!['cash', 'online'].includes(transferTo)) {
+      return res.status(400).json({ error: 'Invalid transfer target' });
     }
 
     const bill = await posModel.findById(billId);
-    if (!bill) return res.status(404).json({ error: "Bill not found" });
+    if (!bill) return res.status(404).json({ error: 'Bill not found' });
 
     if (amount > bill.credit) {
-      return res.status(400).json({ error: "Insufficient credit to transfer" });
+      return res.status(400).json({ error: 'Insufficient credit to transfer' });
     }
 
     // Update the values
@@ -219,10 +321,11 @@ export const transferCreditTo = async (req, res) => {
 
     res.json({ success: true, updatedBill: bill });
   } catch (err) {
-    res.status(500).json({ error: "Failed to transfer credit", details: err.message });
+    res
+      .status(500)
+      .json({ error: 'Failed to transfer credit', details: err.message });
   }
 };
-
 
 // In pos.controller.js
 export const getAllBills = async (req, res) => {
@@ -230,24 +333,24 @@ export const getAllBills = async (req, res) => {
     const bills = await posModel.find().sort({ createdAt: -1 });
     res.json(bills);
   } catch (err) {
-    res.status(500).json({ error: "Failed to fetch bills" });
+    res.status(500).json({ error: 'Failed to fetch bills' });
   }
 };
 export const getSalesByTimeRange = async (req, res) => {
   try {
-    const { range = "today" } = req.query;
+    const { range = 'today' } = req.query;
 
     const now = new Date();
     let startDate, endDate;
 
     switch (range) {
-      case "today":
+      case 'today':
         startDate = new Date(now.setHours(0, 0, 0, 0));
         endDate = new Date(startDate);
         endDate.setDate(endDate.getDate() + 1);
         break;
 
-    case "week":
+      case 'week':
         const dayOfWeek = now.getDay(); // 0 (Sun) to 6 (Sat)
         startDate = new Date(now);
         startDate.setDate(now.getDate() - dayOfWeek);
@@ -257,18 +360,18 @@ export const getSalesByTimeRange = async (req, res) => {
         endDate.setDate(endDate.getDate() + 7);
         break;
 
-      case "month":
+      case 'month':
         startDate = new Date(now.getFullYear(), now.getMonth(), 1);
         endDate = new Date(now.getFullYear(), now.getMonth() + 1, 1);
         break;
 
-      case "year":
+      case 'year':
         startDate = new Date(now.getFullYear(), 0, 1);
         endDate = new Date(now.getFullYear() + 1, 0, 1);
         break;
 
       default:
-        return res.status(400).json({ error: "Invalid time range" });
+        return res.status(400).json({ error: 'Invalid time range' });
     }
 
     const sales = await posModel.aggregate([
@@ -277,32 +380,32 @@ export const getSalesByTimeRange = async (req, res) => {
           createdAt: {
             $gte: startDate,
             $lt: endDate,
-          }
-        }
+          },
+        },
       },
       {
         $group: {
           _id: null,
-          totalSales: { $sum: "$totalAmount" },
-          totalCash: { $sum: "$cash" },
-          totalOnline: { $sum: "$online" },
-          totalCredit: { $sum: "$credit" },
+          totalSales: { $sum: '$totalAmount' },
+          totalCash: { $sum: '$cash' },
+          totalOnline: { $sum: '$online' },
+          totalCredit: { $sum: '$credit' },
           orders: { $sum: 1 },
-        }
-      }
+        },
+      },
     ]);
 
-    res.json(sales[0] || {
-      totalSales: 0,
-      totalCash: 0,
-      totalOnline: 0,
-      totalCredit: 0,
-      orders: 0
-    });
-
+    res.json(
+      sales[0] || {
+        totalSales: 0,
+        totalCash: 0,
+        totalOnline: 0,
+        totalCredit: 0,
+        orders: 0,
+      },
+    );
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: "Failed to get sales by time range" });
+    res.status(500).json({ error: 'Failed to get sales by time range' });
   }
 };
-

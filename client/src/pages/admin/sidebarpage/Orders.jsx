@@ -41,9 +41,13 @@ const Orders = () => {
   const fetchOrders = async () => {
     try {
       setLoading(true);
-      const { data } = await axios.get(`${ORDER_API_END_POINT}/orders/filter?page=${page}&limit=${limit}`);
+      const { data } = await axios.get(
+        `${ORDER_API_END_POINT}/orders/filter?page=${page}&limit=${limit}`,
+      );
       const sortedOrders = Array.isArray(data.orders)
-        ? [...data.orders].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+        ? [...data.orders].sort(
+            (a, b) => new Date(b.createdAt) - new Date(a.createdAt),
+          )
         : [];
       setOrders(sortedOrders);
       setTotalPages(data.totalPages || 1);
@@ -63,12 +67,14 @@ const Orders = () => {
   const handleChangeStatus = async (orderId, newStatus) => {
     try {
       setUpdatingStatus(orderId); // Indicate which order is being updated
-      await axios.put(`${ORDER_API_END_POINT}/orders/${orderId}`, { status: newStatus });
+      await axios.put(`${ORDER_API_END_POINT}/orders/${orderId}`, {
+        status: newStatus,
+      });
       // Update the order's status in the local state
       setOrders((prevOrders) =>
         prevOrders.map((order) =>
-          order._id === orderId ? { ...order, status: newStatus } : order
-        )
+          order._id === orderId ? { ...order, status: newStatus } : order,
+        ),
       );
     } catch (error) {
       console.error('Failed to update status:', error);
@@ -81,24 +87,16 @@ const Orders = () => {
   const handleSendToKOT = async (orderId) => {
     try {
       await axios.put(`${ORDER_API_END_POINT}/orders/${orderId}/send-to-kot`);
-      const updatedOrder = orders.find((o) => o._id === orderId);
-      if (!updatedOrder) return;
 
       setOrders((prevOrders) =>
         prevOrders.map((order) =>
-          order._id === orderId ? { ...order, sentToKOT: true } : order
-        )
+          order._id === orderId
+            ? { ...order, sentToKOT: true, status: 'in-progress' }
+            : order,
+        ),
       );
 
-      setBillData({
-        customer: updatedOrder.customerName,
-        table: updatedOrder.tableNumber,
-        orderType: updatedOrder.orderType,
-        orders: [updatedOrder],
-        total: (updatedOrder.subtotal || 0).toFixed(2),
-      });
-
-      alert('Order sent to KOT and bill generated');
+      alert('Order sent to KOT successfully!');
     } catch (err) {
       console.error('Error sending to KOT', err);
       alert('Failed to send to KOT. Please try again.');
@@ -110,10 +108,15 @@ const Orders = () => {
       (o) =>
         o.orderType === order.orderType &&
         o.customerName === order.customerName &&
-        (order.orderType === 'dine-in' ? o.tableNumber === order.tableNumber : true)
+        (order.orderType === 'dine-in'
+          ? o.tableNumber === order.tableNumber
+          : true),
     );
 
-    const totalAmount = groupedOrders.reduce((sum, o) => sum + (o.subtotal || 0), 0);
+    const totalAmount = groupedOrders.reduce(
+      (sum, o) => sum + (o.subtotal || 0),
+      0,
+    );
 
     setBillData({
       customer: order.customerName,
@@ -135,7 +138,10 @@ const Orders = () => {
       oneWeekAgo.setDate(now.getDate() - 7);
       return orderDate >= oneWeekAgo;
     } else if (dateFilter === 'month') {
-      return orderDate.getMonth() === now.getMonth() && orderDate.getFullYear() === now.getFullYear();
+      return (
+        orderDate.getMonth() === now.getMonth() &&
+        orderDate.getFullYear() === now.getFullYear()
+      );
     } else if (dateFilter === 'year') {
       return orderDate.getFullYear() === now.getFullYear();
     }
@@ -147,9 +153,13 @@ const Orders = () => {
       (order) =>
         order.customerName.toLowerCase().includes(searchTerm.toLowerCase()) ||
         order.orderType.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        (order.tableNumber && order.tableNumber.toString().includes(searchTerm))
+        (order.tableNumber &&
+          order.tableNumber.toString().includes(searchTerm)),
     )
-    .filter((order) => orderTypeFilter === 'all' || order.orderType === orderTypeFilter)
+    .filter(
+      (order) =>
+        orderTypeFilter === 'all' || order.orderType === orderTypeFilter,
+    )
     .filter((order) => statusFilter === 'all' || order.status === statusFilter)
     .filter((order) => filterByDate(order.createdAt));
 
@@ -181,7 +191,7 @@ const Orders = () => {
   };
 
   return (
-    <div className="p-6 min-h-screen bg-gray-100">
+    <div className='p-6 min-h-screen bg-gray-100'>
       <style>
         {`
           @media print {
@@ -207,133 +217,143 @@ const Orders = () => {
           }
         `}
       </style>
-      <div className="max-w-7xl mx-auto bg-white p-6 rounded-xl shadow-md">
-        <h1 className="text-3xl font-bold mb-6 text-center text-gray-800">Order Management</h1>
+      <div className='max-w-7xl mx-auto bg-white p-6 rounded-xl shadow-md'>
+        <h1 className='text-3xl font-bold mb-6 text-center text-gray-800'>
+          Order Management
+        </h1>
 
         {/* Filters */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+        <div className='grid grid-cols-1 md:grid-cols-4 gap-4 mb-6'>
           <input
-            type="text"
-            placeholder="Search by customer, type, or table..."
-            className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            type='text'
+            placeholder='Search by customer, type, or table...'
+            className='w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500'
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
           />
           <select
-            className="w-full p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className='w-full p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500'
             value={orderTypeFilter}
             onChange={(e) => setOrderTypeFilter(e.target.value)}
           >
-            <option value="all">All Types</option>
-            <option value="dine-in">Dine-In</option>
-            <option value="delivery">Delivery</option>
-            <option value="takeaway">Takeaway</option>
+            <option value='all'>All Types</option>
+            <option value='dine-in'>Dine-In</option>
+            <option value='delivery'>Delivery</option>
+            <option value='takeaway'>Takeaway</option>
           </select>
           <select
-            className="w-full p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className='w-full p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500'
             value={dateFilter}
             onChange={(e) => setDateFilter(e.target.value)}
           >
-            <option value="all">All Time</option>
-            <option value="day">Today</option>
-            <option value="week">This Week</option>
-            <option value="month">This Month</option>
-            <option value="year">This Year</option>
+            <option value='all'>All Time</option>
+            <option value='day'>Today</option>
+            <option value='week'>This Week</option>
+            <option value='month'>This Month</option>
+            <option value='year'>This Year</option>
           </select>
           <select
-            className="w-full p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className='w-full p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500'
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
           >
-            <option value="all">All Status</option>
-            <option value="pending">Pending</option>
-            <option value="in-progress">In Progress</option>
-            <option value="completed">Completed</option>
-            <option value="cancelled">Cancelled</option>
-            <option value="delivered">Delivered</option>
+            <option value='all'>All Status</option>
+            <option value='pending'>Pending</option>
+            <option value='in-progress'>In Progress</option>
+            <option value='completed'>Completed</option>
+            <option value='cancelled'>Cancelled</option>
+            <option value='delivered'>Delivered</option>
           </select>
         </div>
 
         {/* Table */}
         {loading ? (
-          <div className="text-center py-20">Loading orders...</div>
+          <div className='text-center py-20'>Loading orders...</div>
         ) : filteredOrders.length === 0 ? (
-          <div className="text-center py-20">No orders found.</div>
+          <div className='text-center py-20'>No orders found.</div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="min-w-full border">
-              <thead className="bg-gray-100">
+          <div className='overflow-x-auto'>
+            <table className='min-w-full border'>
+              <thead className='bg-gray-100'>
                 <tr>
-                  <th className="py-2 px-4 border">#</th>
-                  <th className="py-2 px-4 border">Customer</th>
-                  <th className="py-2 px-4 border">Type</th>
-                  <th className="py-2 px-4 border">Table</th>
-                  <th className="py-2 px-4 border">Items</th>
-                  <th className="py-2 px-4 border">Status</th>
-                  <th className="py-2 px-4 border">Payment</th>
-                  <th className="py-2 px-4 border">Amount</th>
-                  <th className="py-2 px-4 border">Time</th>
-                  <th className="py-2 px-4 border">Actions</th>
+                  <th className='py-2 px-4 border'>#</th>
+                  <th className='py-2 px-4 border'>Customer</th>
+                  <th className='py-2 px-4 border'>Type</th>
+                  <th className='py-2 px-4 border'>Table</th>
+                  <th className='py-2 px-4 border'>Items</th>
+                  <th className='py-2 px-4 border'>Status</th>
+                  <th className='py-2 px-4 border'>Payment</th>
+                  <th className='py-2 px-4 border'>Amount</th>
+                  <th className='py-2 px-4 border'>Time</th>
+                  <th className='py-2 px-4 border'>Actions</th>
                 </tr>
               </thead>
               <tbody>
                 {filteredOrders.map((order, index) => (
-                  <tr key={order._id} className="text-center hover:bg-gray-50">
-                    <td className="py-2 px-4 border">{(page - 1) * limit + index + 1}</td>
-                    <td className="py-2 px-4 border">{order.customerName || 'Guest'}</td>
-                    <td className="py-2 px-4 border">{order.orderType}</td>
-                    <td className="py-2 px-4 border">{order.tableNumber || '-'}</td>
-                    <td className="py-2 px-4 border text-left max-w-xs overflow-y-auto">
+                  <tr key={order._id} className='text-center hover:bg-gray-50'>
+                    <td className='py-2 px-4 border'>
+                      {(page - 1) * limit + index + 1}
+                    </td>
+                    <td className='py-2 px-4 border'>
+                      {order.customerName || 'Guest'}
+                    </td>
+                    <td className='py-2 px-4 border'>{order.orderType}</td>
+                    <td className='py-2 px-4 border'>
+                      {order.tableNumber || '-'}
+                    </td>
+                    <td className='py-2 px-4 border text-left max-w-xs overflow-y-auto'>
                       {order.items?.map((item, i) => (
                         <div key={i}>
                           {item.quantity}x {item.name} - Rs.{item.price}
                         </div>
                       ))}
                     </td>
-                    <td className="py-2 px-4 border">
+                    <td className='py-2 px-4 border'>
                       <span
                         className={`inline-block px-2 py-1 rounded-full text-xs font-semibold ${getStatusClass(
-                          order.status
+                          order.status,
                         )}`}
                       >
                         {order.status}
                       </span>
                     </td>
-                    <td className="py-2 px-4 border">{order.paymentMethod}</td>
-                    <td className="py-2 px-4 border text-green-600 font-semibold">
+                    <td className='py-2 px-4 border'>{order.paymentMethod}</td>
+                    <td className='py-2 px-4 border text-green-600 font-semibold'>
                       Rs.{order.subtotal?.toFixed(2) || '0.00'}
                     </td>
-                    <td className="py-2 px-4 border text-xs">
+                    <td className='py-2 px-4 border text-xs'>
                       {new Date(order.createdAt).toLocaleTimeString([], {
                         hour: '2-digit',
                         minute: '2-digit',
                       })}
                     </td>
-                    <td className="py-2 px-4 border">
+                    <td className='py-2 px-4 border'>
                       <select
-                        className="p-1 mb-2 w-full rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
+                        className='p-1 mb-2 w-full rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50'
                         value={order.status}
-                        onChange={(e) => handleChangeStatus(order._id, e.target.value)}
+                        onChange={(e) =>
+                          handleChangeStatus(order._id, e.target.value)
+                        }
                         disabled={updatingStatus === order._id}
                       >
-                        <option value="pending">Pending</option>
-                        <option value="in-progress">In Progress</option>
-                        <option value="completed">Completed</option>
-                        <option value="cancelled">Cancelled</option>
-                        <option value="delivered">Delivered</option>
+                        <option value='pending'>Pending</option>
+                        <option value='in-progress'>In Progress</option>
+                        <option value='completed'>Completed</option>
+                        <option value='cancelled'>Cancelled</option>
+                        <option value='delivered'>Delivered</option>
                       </select>
 
                       {order.sentToKOT ? (
                         <button
                           disabled
-                          className="bg-gray-400 text-white px-2 py-1 rounded text-xs w-full mb-1 cursor-not-allowed"
+                          className='bg-gray-400 text-white px-2 py-1 rounded text-xs w-full mb-1 cursor-not-allowed'
                         >
                           Sent to KOT
                         </button>
                       ) : (
                         <button
                           onClick={() => handleSendToKOT(order._id)}
-                          className="bg-yellow-500 text-white px-2 py-1 rounded text-xs w-full mb-1 hover:bg-yellow-600"
+                          className='bg-yellow-500 text-white px-2 py-1 rounded text-xs w-full mb-1 hover:bg-yellow-600'
                         >
                           Send to KOT
                         </button>
@@ -352,21 +372,21 @@ const Orders = () => {
             </table>
 
             {/* Pagination Controls */}
-            <div className="flex justify-between items-center mt-4">
+            <div className='flex justify-between items-center mt-4'>
               <button
                 onClick={handlePreviousPage}
                 disabled={page === 1}
-                className="bg-blue-600 text-white px-4 py-2 rounded disabled:bg-gray-400 hover:bg-blue-700"
+                className='bg-blue-600 text-white px-4 py-2 rounded disabled:bg-gray-400 hover:bg-blue-700'
               >
                 Previous
               </button>
-              <span className="text-gray-700">
+              <span className='text-gray-700'>
                 Page {page} of {totalPages}
               </span>
               <button
                 onClick={handleNextPage}
                 disabled={page === totalPages}
-                className="bg-blue-600 text-white px-4 py-2 rounded disabled:bg-gray-400 hover:bg-blue-700"
+                className='bg-blue-600 text-white px-4 py-2 rounded disabled:bg-gray-400 hover:bg-blue-700'
               >
                 Next
               </button>
@@ -376,19 +396,21 @@ const Orders = () => {
 
         {/* Bill Modal */}
         {billData && (
-          <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-40 z-50 no-print">
+          <div className='fixed inset-0 flex items-center justify-center bg-black bg-opacity-40 z-50 no-print'>
             <div
-              id="bill-content"
+              id='bill-content'
               ref={billRef}
-              className="bg-white p-6 rounded-lg shadow-lg w-full max-w-md relative"
+              className='bg-white p-6 rounded-lg shadow-lg w-full max-w-md relative'
             >
               <button
-                className="absolute top-2 right-3 text-xl font-bold text-gray-500 no-print"
+                className='absolute top-2 right-3 text-xl font-bold text-gray-500 no-print'
                 onClick={() => setBillData(null)}
               >
                 ×
               </button>
-              <h2 className="text-xl font-bold mb-4 text-center">Bill Summary</h2>
+              <h2 className='text-xl font-bold mb-4 text-center'>
+                Bill Summary
+              </h2>
               <p>
                 <strong>Customer:</strong> {billData.customer}
               </p>
@@ -400,12 +422,12 @@ const Orders = () => {
               <p>
                 <strong>Order Type:</strong> {billData.orderType}
               </p>
-              <div className="mt-4 max-h-60 overflow-auto border p-2 rounded">
+              <div className='mt-4 max-h-60 overflow-auto border p-2 rounded'>
                 {billData.orders.map((order, idx) => (
-                  <div key={idx} className="mb-2 border-b pb-1">
+                  <div key={idx} className='mb-2 border-b pb-1'>
                     <div>
                       <strong>Items:</strong>
-                      <ul className="list-disc list-inside">
+                      <ul className='list-disc list-inside'>
                         {order.items?.map((item, i) => (
                           <li key={i}>
                             {item.quantity} x {item.name} - Rs.{item.price}
@@ -414,7 +436,8 @@ const Orders = () => {
                       </ul>
                     </div>
                     <div>
-                      <strong>Subtotal:</strong> Rs.{order.subtotal?.toFixed(2) || '0.00'}
+                      <strong>Subtotal:</strong> Rs.
+                      {order.subtotal?.toFixed(2) || '0.00'}
                     </div>
                     <div>
                       <strong>Status:</strong> {order.status}
@@ -425,18 +448,20 @@ const Orders = () => {
                   </div>
                 ))}
               </div>
-              <p className="text-right font-bold mt-4">Total: Rs.{billData.total}</p>
+              <p className='text-right font-bold mt-4'>
+                Total: Rs.{billData.total}
+              </p>
 
               <button
                 onClick={handlePrint}
-                className="mt-4 bg-blue-600 text-white px-4 py-2 rounded w-full hover:bg-blue-700 no-print"
+                className='mt-4 bg-blue-600 text-white px-4 py-2 rounded w-full hover:bg-blue-700 no-print'
               >
                 Print Bill
               </button>
 
               <button
                 onClick={() => setBillData(null)}
-                className="mt-2 bg-red-600 text-white px-4 py-2 rounded w-full hover:bg-red-700 no-print"
+                className='mt-2 bg-red-600 text-white px-4 py-2 rounded w-full hover:bg-red-700 no-print'
               >
                 Close
               </button>
